@@ -8,14 +8,14 @@ import (
 var Phils chan []int
 var Forks chan []int
 
-// var allDone chan bool
+var allDone chan bool
 var amount int
 
 func main() {
 	wg := new(sync.WaitGroup)
 	Phils = make(chan []int, 1)
 	Forks = make(chan []int, 1)
-	//allDone = make(chan bool, 1)
+	allDone = make(chan bool, 1)
 
 	amount = 5
 
@@ -25,7 +25,7 @@ func main() {
 		forkList[i] = -1
 	}
 
-	//allDone <- false
+	allDone <- false
 	Forks <- forkList
 	Phils <- make([]int, amount)
 
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	wg.Wait()
-	fmt.Print("All done")
+	fmt.Println("All done")
 }
 
 func philosopher(index int, wg *sync.WaitGroup) {
@@ -50,8 +50,25 @@ func philosopher(index int, wg *sync.WaitGroup) {
 	}
 
 	for {
-		philz := <-Phils
 		forkz := <-Forks
+		philz := <-Phils
+
+		doneForks := 0
+
+		for i := 0; i < len(forkz); i++ {
+			if forkz[i] == -2 {
+				doneForks++
+			}
+		}
+
+		if doneForks == amount {
+			go func() {
+				Phils <- philz
+				Forks <- forkz
+			}()
+
+			break
+		}
 
 		hasLeftFork := forkz[leftF] == index
 		hasRightFork := forkz[rightF] == index
@@ -80,12 +97,15 @@ func philosopher(index int, wg *sync.WaitGroup) {
 		}
 
 		if minVal >= 3 {
-			//allDone <- true
+			go func() {
+				allDone <- true
+			}()
 		}
 
-		Phils <- philz
-		Forks <- forkz
-
+		go func() {
+			Phils <- philz
+			Forks <- forkz
+		}()
 	}
 
 	fmt.Printf("Phil #%d is done \n", index)
@@ -93,6 +113,7 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 func fork(index int, wg *sync.WaitGroup) {
 	defer wg.Done()
+
 	leftP := index
 	_ = leftP
 	rightP := (index + 1) % 5
@@ -103,14 +124,15 @@ func fork(index int, wg *sync.WaitGroup) {
 	rightF := (index + 1) % 5
 	_ = rightF
 	leftF := index - 1
-	if leftF < 0 {
+	if leftF == -1 {
 		leftF = amount - 1
 	}
 
 	for {
 		forkz := <-Forks
 		philz := <-Phils
-		//done := <-allDone
+
+		done := <-allDone
 
 		if forkz[index] == -1 {
 			if forkz[leftF] == leftP {
@@ -120,13 +142,18 @@ func fork(index int, wg *sync.WaitGroup) {
 			}
 		}
 
-		Forks <- forkz
-		Phils <- philz
-		//allDone <- done
+		go func() {
+			Forks <- forkz
+			Phils <- philz
+			allDone <- done
+		}()
 
-		/*if done {
+		if done {
+			forkz[index] = -2
+
 			break
-		*/}
+		}
 	}
+
 	fmt.Printf("Fork #%d is done \n", index)
 }
