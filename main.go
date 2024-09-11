@@ -6,7 +6,7 @@ import (
 )
 
 // EXPLANATION OF WHY THE CODE DOESN'T DEADLOCK
-// TODO:
+// TODO: EXPLAIN
 
 var Phils chan []int
 var Forks chan []int
@@ -65,10 +65,9 @@ func philosopher(index int, wg *sync.WaitGroup) {
 		}
 
 		if doneForks == amount {
-			//go func() {
+
 			Phils <- philz
 			Forks <- forkz
-			//}()
 
 			break
 		}
