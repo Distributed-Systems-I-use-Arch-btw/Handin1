@@ -47,6 +47,16 @@ func setup() {
 	Phils <- make([]int, amount)
 }
 
+func minVal(slice []int) int {
+	min := slice[0]
+	for i := 0; i < len(slice); i++ {
+		if slice[i] < min {
+			min = slice[i]
+		}
+	}
+	return min
+}
+
 func philosopher(index int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -65,15 +75,9 @@ func philosopher(index int, wg *sync.WaitGroup) {
 		forkz := <-Forks
 		philz := <-Phils
 
-		doneForks := 0
+		min := minVal(philz)
 
-		for i := 0; i < len(forkz); i++ {
-			if forkz[i] == -2 {
-				doneForks++
-			}
-		}
-
-		if doneForks == amount {
+		if min >= 3 {
 
 			Phils <- philz
 			Forks <- forkz
@@ -104,18 +108,11 @@ func philosopher(index int, wg *sync.WaitGroup) {
 			}
 		}
 
-		minVal := philz[0]
-		for i := 0; i < len(philz); i++ {
-			if philz[i] < minVal {
-				minVal = philz[i]
-			}
-		}
+		minVal := minVal(philz)
 
 		if minVal >= 3 {
-			go func() {
-				<-allDone // Done to retrieve the value, so a new value can be inserted
-				allDone <- true
-			}()
+			<-allDone // Done to retrieve the value, so a new value can be inserted
+			allDone <- true
 		}
 		Phils <- philz
 		Forks <- forkz
@@ -156,10 +153,6 @@ func fork(index int, wg *sync.WaitGroup) {
 		allDone <- done
 
 		if done {
-			forkz = <-Forks
-			forkz[index] = -2
-			Forks <- forkz
-
 			break
 		}
 	}
