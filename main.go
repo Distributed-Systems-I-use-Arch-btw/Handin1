@@ -16,12 +16,26 @@ var amount int
 
 func main() {
 	wg := new(sync.WaitGroup)
-	Phils = make(chan []int, 1)
-	Forks = make(chan []int, 1)
-	allDone = make(chan bool, 1)
+	Phils = make(chan []int)
+	Forks = make(chan []int)
+	allDone = make(chan bool)
 
 	amount = 5
 
+	for i := 0; i < amount; i++ {
+		wg.Add(2)
+		go philosopher(i, wg)
+		go fork(i, wg)
+	}
+
+	setup()
+
+	wg.Wait()
+	fmt.Printf("%d \n", <-Phils)
+	fmt.Println("All done")
+}
+
+func setup() {
 	forkList := make([]int, amount)
 
 	for i := 0; i < amount; i++ {
@@ -31,16 +45,6 @@ func main() {
 	allDone <- false
 	Forks <- forkList
 	Phils <- make([]int, amount)
-
-	for i := 0; i < amount; i++ {
-		wg.Add(2)
-		go philosopher(i, wg)
-		go fork(i, wg)
-	}
-
-	wg.Wait()
-	fmt.Printf("%d \n", <-Phils)
-	fmt.Println("All done")
 }
 
 func philosopher(index int, wg *sync.WaitGroup) {
@@ -104,7 +108,6 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 		if minVal >= 3 {
 			go func() {
-				_ = <-allDone // Done to retrieve the value, so a new value can be inserted
 				allDone <- true
 			}()
 		}
