@@ -16,19 +16,19 @@ var amount int
 
 func main() {
 	wg := new(sync.WaitGroup)
-	Phils = make(chan []int)
-	Forks = make(chan []int)
-	allDone = make(chan bool)
+	Phils = make(chan []int, 1)
+	Forks = make(chan []int, 1)
+	allDone = make(chan bool, 1)
 
 	amount = 5
+
+	setup()
 
 	for i := 0; i < amount; i++ {
 		wg.Add(2)
 		go philosopher(i, wg)
 		go fork(i, wg)
 	}
-
-	setup()
 
 	wg.Wait()
 	fmt.Printf("%d \n", <-Phils)
@@ -51,11 +51,16 @@ func philosopher(index int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	rightF := index
-	leftF := index - 1
-	if leftF < 0 {
-		leftF = amount - 1
-	}
+
+	leftF := func() int {
+		if index == 0 {
+			return amount - 1
+		}
+		return index - 1
+	}()
+
 	stateChange := true
+
 	for {
 		forkz := <-Forks
 		philz := <-Phils
@@ -108,6 +113,7 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 		if minVal >= 3 {
 			go func() {
+				<-allDone // Done to retrieve the value, so a new value can be inserted
 				allDone <- true
 			}()
 		}
@@ -124,14 +130,12 @@ func fork(index int, wg *sync.WaitGroup) {
 	leftP := index
 	rightP := (index + 1) % amount
 
-	if rightP == amount {
-		rightP = 0
-	}
-
-	leftF := index - 1
-	if leftF == -1 {
-		leftF = amount - 1
-	}
+	leftF := func() int {
+		if index == 0 {
+			return amount - 1
+		}
+		return index - 1
+	}()
 
 	for {
 		forkz := <-Forks
@@ -152,7 +156,9 @@ func fork(index int, wg *sync.WaitGroup) {
 		allDone <- done
 
 		if done {
+			forkz = <-Forks
 			forkz[index] = -2
+			Forks <- forkz
 
 			break
 		}
