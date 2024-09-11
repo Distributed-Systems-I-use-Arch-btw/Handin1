@@ -95,7 +95,7 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 			stateChange = true
 
-			fmt.Printf("Phil #%d has eaten %d times 🍴🍴\n", index, philz[index])
+			//fmt.Printf("Phil #%d has eaten %d times 🍴🍴\n", index, philz[index])
 		} else {
 			if hasLeftFork {
 				forkz[leftF] = -1
@@ -103,7 +103,7 @@ func philosopher(index int, wg *sync.WaitGroup) {
 				forkz[rightF] = -1
 			}
 			if stateChange {
-				fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
+				//fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
 				stateChange = false
 			}
 		}
@@ -135,10 +135,15 @@ func fork(index int, wg *sync.WaitGroup) {
 	}()
 
 	for {
+		done := <-allDone
+		allDone <- done
+
+		if done {
+			break
+		}
+
 		forkz := <-Forks
 		philz := <-Phils
-
-		done := <-allDone
 
 		if forkz[index] == -1 {
 			if forkz[leftF] == leftP {
@@ -150,11 +155,6 @@ func fork(index int, wg *sync.WaitGroup) {
 
 		Forks <- forkz
 		Phils <- philz
-		allDone <- done
-
-		if done {
-			break
-		}
 	}
 
 	fmt.Printf("Fork #%d is done \n", index)
