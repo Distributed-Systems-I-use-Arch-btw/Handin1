@@ -5,6 +5,9 @@ import (
 	"sync"
 )
 
+// EXPLANATION OF WHY THE CODE DOESN'T DEADLOCK
+// TODO:
+
 var Phils chan []int
 var Forks chan []int
 
@@ -36,6 +39,7 @@ func main() {
 	}
 
 	wg.Wait()
+	fmt.Printf("%d \n", <-Phils)
 	fmt.Println("All done")
 }
 
@@ -43,12 +47,11 @@ func philosopher(index int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	rightF := index
-	_ = rightF
 	leftF := index - 1
 	if leftF < 0 {
 		leftF = amount - 1
 	}
-
+	stateChange := true
 	for {
 		forkz := <-Forks
 		philz := <-Phils
@@ -62,10 +65,10 @@ func philosopher(index int, wg *sync.WaitGroup) {
 		}
 
 		if doneForks == amount {
-			go func() {
-				Phils <- philz
-				Forks <- forkz
-			}()
+			//go func() {
+			Phils <- philz
+			Forks <- forkz
+			//}()
 
 			break
 		}
@@ -78,6 +81,8 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 			forkz[leftF], forkz[rightF] = -1, -1
 
+			stateChange = true
+
 			fmt.Printf("Phil #%d has eaten %d times 🍴🍴\n", index, philz[index])
 		} else {
 			if hasLeftFork {
@@ -85,8 +90,10 @@ func philosopher(index int, wg *sync.WaitGroup) {
 			} else if hasRightFork {
 				forkz[rightF] = -1
 			}
-
-			fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
+			if stateChange {
+				fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
+				stateChange = false
+			}
 		}
 
 		minVal := philz[0]
@@ -98,14 +105,12 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 		if minVal >= 3 {
 			go func() {
+				_ = <-allDone // Done to retrieve the value, so a new value can be inserted
 				allDone <- true
 			}()
 		}
-
-		go func() {
-			Phils <- philz
-			Forks <- forkz
-		}()
+		Phils <- philz
+		Forks <- forkz
 	}
 
 	fmt.Printf("Phil #%d is done \n", index)
@@ -115,14 +120,12 @@ func fork(index int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	leftP := index
-	_ = leftP
-	rightP := (index + 1) % 5
+	rightP := (index + 1) % amount
+
 	if rightP == amount {
 		rightP = 0
 	}
 
-	rightF := (index + 1) % 5
-	_ = rightF
 	leftF := index - 1
 	if leftF == -1 {
 		leftF = amount - 1
@@ -142,11 +145,9 @@ func fork(index int, wg *sync.WaitGroup) {
 			}
 		}
 
-		go func() {
-			Forks <- forkz
-			Phils <- philz
-			allDone <- done
-		}()
+		Forks <- forkz
+		Phils <- philz
+		allDone <- done
 
 		if done {
 			forkz[index] = -2
