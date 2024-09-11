@@ -6,10 +6,13 @@ import (
 )
 
 // EXPLANATION OF WHY THE CODE DOESN'T DEADLOCK
-// TODO: EXPLAIN
+// The reason why it doesn't deadlock is because the channel has a buffer of 1, so when all have eaten 3 times
+// they can send their value to channel without needing to be read. If there was no buffer you would get a deadlock
+// because both Phils, Forks and allDone are waiting to be read while the order go routines have terminated.
 
 var Phils chan []int
 var Forks chan []int
+var Print chan []int
 
 var allDone chan bool
 var amount int
@@ -22,17 +25,15 @@ func main() {
 
 	amount = 5
 
-	setup()
+	go setup()
 
 	for i := 0; i < amount; i++ {
 		wg.Add(2)
 		go philosopher(i, wg)
 		go fork(i, wg)
 	}
-
 	wg.Wait()
-	fmt.Printf("%d \n", <-Phils)
-	fmt.Println("All done")
+	fmt.Println(<-Phils)
 }
 
 func setup() {
@@ -72,18 +73,15 @@ func philosopher(index int, wg *sync.WaitGroup) {
 	stateChange := true
 
 	for {
-		forkz := <-Forks
-		philz := <-Phils
+		done := <-allDone
 
-		min := minVal(philz)
-
-		if min >= 3 {
-
-			Phils <- philz
-			Forks <- forkz
-
+		if done {
+			allDone <- done
 			break
 		}
+
+		forkz := <-Forks
+		philz := <-Phils
 
 		hasLeftFork := forkz[leftF] == index
 		hasRightFork := forkz[rightF] == index
@@ -95,7 +93,7 @@ func philosopher(index int, wg *sync.WaitGroup) {
 
 			stateChange = true
 
-			//fmt.Printf("Phil #%d has eaten %d times 🍴🍴\n", index, philz[index])
+			fmt.Printf("Phil #%d has eaten %d times 🍴🍴\n", index, philz[index])
 		} else {
 			if hasLeftFork {
 				forkz[leftF] = -1
@@ -103,19 +101,14 @@ func philosopher(index int, wg *sync.WaitGroup) {
 				forkz[rightF] = -1
 			}
 			if stateChange {
-				//fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
+				fmt.Printf("Phil #%d is THINKING 🤔🤔 \n", index)
 				stateChange = false
 			}
 		}
 
-		minVal := minVal(philz)
-
-		if minVal >= 3 {
-			<-allDone // Done to retrieve the value, so a new value can be inserted
-			allDone <- true
-		}
-		Phils <- philz
+		allDone <- minVal(philz) >= 3
 		Forks <- forkz
+		Phils <- philz
 	}
 
 	fmt.Printf("Phil #%d is done \n", index)
@@ -136,9 +129,9 @@ func fork(index int, wg *sync.WaitGroup) {
 
 	for {
 		done := <-allDone
-		allDone <- done
 
 		if done {
+			allDone <- done
 			break
 		}
 
@@ -153,6 +146,7 @@ func fork(index int, wg *sync.WaitGroup) {
 			}
 		}
 
+		allDone <- done
 		Forks <- forkz
 		Phils <- philz
 	}
