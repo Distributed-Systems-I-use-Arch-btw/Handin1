@@ -12,7 +12,6 @@ import (
 
 var Phils chan []int
 var Forks chan []int
-var Print chan []int
 
 var allDone chan bool
 var amount int
